@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth'
 import { getCurrentTenant } from '@/lib/tenant'
 import { broadcastEvent } from '@/lib/sse-clients'
 
+export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   try {
     // For webhook ingestion, check API key or auth

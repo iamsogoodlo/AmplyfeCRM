@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth'
 import { getCurrentTenant } from '@/lib/tenant'
 import { subDays, startOfDay, endOfDay } from 'date-fns'
 
+export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
