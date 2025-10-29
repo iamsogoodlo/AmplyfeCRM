@@ -56,7 +56,7 @@ export default function OnboardingPage() {
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle>Welcome to Salon CRM</CardTitle>
-          <CardDescription>Let's set up your salon in a few steps</CardDescription>
+          <CardDescription>Let&apos;s set up your salon in a few steps</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {step === 1 && (
