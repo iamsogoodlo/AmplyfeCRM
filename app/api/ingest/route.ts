@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { getCurrentTenant } from '@/lib/tenant'
 import { broadcastEvent } from '@/lib/sse-clients'
+import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     if (apiKey) {
       // Validate API key
-      const hashedKey = apiKey // In production, hash this
+      const hashedKey = crypto.createHash('sha256').update(apiKey).digest('hex')
       const key = await prisma.apiKey.findUnique({
         where: { hashedKey },
       })
