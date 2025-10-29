@@ -1,0 +1,251 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// TENANCY & AUTH
+// ============================================
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  timezone  String   @default("America/Toronto")
+  logo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenantUsers TenantUser[]
+  barbers     Barber[]
+  services    Service[]
+  customers   Customer[]
+  appointments Appointment[]
+  events      Event[]
+  apiKeys     ApiKey[]
+  scheduleRules ScheduleRule[]
+  timeOffs    TimeOff[]
+
+  @@map("tenants")
+}
+
+model UserAccount {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  displayName String?
+  password    String?  // hashed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenantUsers TenantUser[]
+
+  @@map("user_accounts")
+}
+
+model TenantUser {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  role      Role     @default(VIEWER)
+  createdAt DateTime @default(now())
+
+  // Relations
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@map("tenant_users")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  STYLIST
+  VIEWER
+}
+
+// ============================================
+// STAFF & SCHEDULING
+// ============================================
+
+model Barber {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  color         String   @default("#3b82f6") // hex color for calendar
+  calendarEmail String?
+  active        Boolean  @default(true)
+  skills        String[] // service IDs they can perform
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments  Appointment[]
+  scheduleRules ScheduleRule[]
+  timeOffs      TimeOff[]
+
+  @@map("barbers")
+}
+
+model ScheduleRule {
+  id        String   @id @default(cuid())
+  tenantId  String
+  barberId  String
+  weekday   Int      // 0=Sunday, 6=Saturday
+  startTime String   // "09:00"
+  endTime   String   // "17:00"
+  createdAt DateTime @default(now())
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@map("schedule_rules")
+}
+
+model TimeOff {
+  id       String   @id @default(cuid())
+  tenantId String
+  barberId String
+  startAt  DateTime
+  endAt    DateTime
+  reason   String?
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@map("time_offs")
+}
+
+// ============================================
+// SERVICES
+// ============================================
+
+model Service {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  durationMin Int      // duration in minutes
+  priceCents  Int      // price in cents
+  active      Boolean  @default(true)
+  ordering    Int      @default(0) // for UI sorting
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@map("services")
+}
+
+// ============================================
+// CUSTOMERS
+// ============================================
+
+model Customer {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  phone     String?
+  email     String?
+  notes     String?
+  tags      String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@map("customers")
+}
+
+// ============================================
+// APPOINTMENTS
+// ============================================
+
+model Appointment {
+  id         String            @id @default(cuid())
+  tenantId   String
+  customerId String
+  barberId   String
+  serviceId  String
+  startAt    DateTime
+  endAt      DateTime
+  status     AppointmentStatus @default(CONFIRMED)
+  source     BookingSource     @default(MANUAL)
+  notes      String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  // Relations
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  barber   Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  service  Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@map("appointments")
+}
+
+enum AppointmentStatus {
+  CONFIRMED
+  TENTATIVE
+  CANCELLED
+  NO_SHOW
+  COMPLETED
+}
+
+enum BookingSource {
+  PHONE
+  MANUAL
+  ONLINE
+  WALK_IN
+}
+
+// ============================================
+// EVENTS & METRICS
+// ============================================
+
+model Event {
+  id       String   @id @default(cuid())
+  tenantId String
+  ts       DateTime @default(now())
+  type     String   // call_received, booking_parsed, availability_checked, booking_created, sms_sent, error
+  payload  Json
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, ts])
+  @@index([tenantId, type])
+  @@map("events")
+}
+
+// ============================================
+// API KEYS
+// ============================================
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  tenantId   String
+  name       String
+  hashedKey  String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}

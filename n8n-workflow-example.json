@@ -1,0 +1,421 @@
+{
+  "name": "Salon CRM - Phone Booking Flow",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "When call received",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.CRM_URL}}/api/ingest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.CRM_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "call_received"
+            },
+            {
+              "name": "payload",
+              "value": "={{$json}}"
+            }
+          ]
+        }
+      },
+      "name": "Log: Call Received",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "parseText",
+        "text": "={{$json.transcript}}",
+        "prompt": "Extract booking information: customer name, phone, service type, preferred date and time"
+      },
+      "name": "Parse Booking Intent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.CRM_URL}}/api/ingest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.CRM_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "booking_parsed"
+            },
+            {
+              "name": "payload",
+              "value": "={{$json}}"
+            }
+          ]
+        }
+      },
+      "name": "Log: Booking Parsed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.CRM_URL}}/api/availability",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "qs": {
+          "date": "={{$json.date}}",
+          "time": "={{$json.time}}",
+          "duration": "={{$json.duration || 30}}",
+          "timezone": "America/Toronto"
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "name": "Check Availability",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.CRM_URL}}/api/ingest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.CRM_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "availability_checked"
+            },
+            {
+              "name": "payload",
+              "value": "={{$json}}"
+            }
+          ]
+        }
+      },
+      "name": "Log: Availability Checked",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.available}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Is Available?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.CRM_URL}}/api/appointments",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.CRM_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "customer",
+              "value": "={{{\n  name: $json.customerName,\n  phone: $json.customerPhone,\n  email: $json.customerEmail\n}}}"
+            },
+            {
+              "name": "serviceId",
+              "value": "={{$json.serviceId}}"
+            },
+            {
+              "name": "date",
+              "value": "={{$json.date}}"
+            },
+            {
+              "name": "time",
+              "value": "={{$json.time}}"
+            },
+            {
+              "name": "source",
+              "value": "PHONE"
+            }
+          ]
+        }
+      },
+      "name": "Create Booking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1650, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.CRM_URL}}/api/ingest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.CRM_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "booking_created"
+            },
+            {
+              "name": "payload",
+              "value": "={{$json}}"
+            }
+          ]
+        }
+      },
+      "name": "Log: Booking Created",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1850, 200]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "to": "={{$json.customer.phone}}",
+        "message": "Hi {{$json.customer.name}}, your appointment is confirmed for {{$json.date}} at {{$json.time}}. See you then!"
+      },
+      "name": "Send SMS Confirmation",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [2050, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.CRM_URL}}/api/ingest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.CRM_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "sms_sent"
+            },
+            {
+              "name": "payload",
+              "value": "={{$json}}"
+            }
+          ]
+        }
+      },
+      "name": "Log: SMS Sent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [2250, 200]
+    },
+    {
+      "parameters": {
+        "message": "Sorry, no availability. Alternatives: {{$json.alternatives.join(', ')}}"
+      },
+      "name": "Suggest Alternatives",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1650, 400]
+    }
+  ],
+  "connections": {
+    "When call received": {
+      "main": [
+        [
+          {
+            "node": "Log: Call Received",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log: Call Received": {
+      "main": [
+        [
+          {
+            "node": "Parse Booking Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Booking Intent": {
+      "main": [
+        [
+          {
+            "node": "Log: Booking Parsed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log: Booking Parsed": {
+      "main": [
+        [
+          {
+            "node": "Check Availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Availability": {
+      "main": [
+        [
+          {
+            "node": "Log: Availability Checked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log: Availability Checked": {
+      "main": [
+        [
+          {
+            "node": "Is Available?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Available?": {
+      "main": [
+        [
+          {
+            "node": "Create Booking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Suggest Alternatives",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Booking": {
+      "main": [
+        [
+          {
+            "node": "Log: Booking Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log: Booking Created": {
+      "main": [
+        [
+          {
+            "node": "Send SMS Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send SMS Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Log: SMS Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
