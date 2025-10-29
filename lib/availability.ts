@@ -1,5 +1,5 @@
 import { prisma } from './db'
-import { zonedTimeToUtc, utcToZonedTime, format } from 'date-fns-tz'
+import { toZonedTime, fromZonedTime, format } from 'date-fns-tz'
 import { addMinutes, parseISO, setHours, setMinutes } from 'date-fns'
 import { parseTimeString } from './utils'
 
@@ -29,7 +29,7 @@ export async function checkAvailability(
   const localDateTime = setMinutes(setHours(localDate, hour), minute)
 
   // Convert to UTC for database queries
-  const startAtUTC = zonedTimeToUtc(localDateTime, timezone)
+  const startAtUTC = fromZonedTime(localDateTime, timezone)
   const endAtUTC = addMinutes(startAtUTC, duration)
 
   // Get candidate barbers
@@ -186,7 +186,7 @@ async function findAlternatives(
     if (alternatives.length >= 3) break
 
     const localDateTime = setMinutes(setHours(localDate, slot.hour), slot.minute)
-    const startAtUTC = zonedTimeToUtc(localDateTime, timezone)
+    const startAtUTC = fromZonedTime(localDateTime, timezone)
     const endAtUTC = addMinutes(startAtUTC, duration)
 
     for (const barberId of barberIds) {

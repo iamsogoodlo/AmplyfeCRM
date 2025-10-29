@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { getCurrentTenant } from '@/lib/tenant'
-
-// SSE clients tracking
-const clients = new Map<string, ReadableStreamDefaultController>()
+import { broadcastEvent } from '@/lib/sse-clients'
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,19 +68,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
-function broadcastEvent(tenantId: string, event: any) {
-  const clientKey = `tenant-${tenantId}`
-  const controller = clients.get(clientKey)
-
-  if (controller) {
-    try {
-      const data = JSON.stringify(event)
-      controller.enqueue(`data: ${data}\n\n`)
-    } catch (error) {
-      console.error('Error broadcasting event:', error)
-    }
-  }
-}
-
-export { clients }

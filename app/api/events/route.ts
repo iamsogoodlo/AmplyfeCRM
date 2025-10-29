@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { getCurrentTenant } from '@/lib/tenant'
-import { clients } from '../ingest/route'
+import { clients } from '@/lib/sse-clients'
 
 export async function GET(request: NextRequest) {
   try {

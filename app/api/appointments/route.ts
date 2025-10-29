@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { getCurrentTenant } from '@/lib/tenant'
-import { zonedTimeToUtc } from 'date-fns-tz'
+import { fromZonedTime } from 'date-fns-tz'
 import { addMinutes, parseISO, setHours, setMinutes } from 'date-fns'
 import { parseTimeString } from '@/lib/utils'
 import { autoAssignBarber } from '@/lib/availability'
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     // Convert to UTC
     const tz = timezone || tenant.timezone
-    const startAtUTC = zonedTimeToUtc(localDateTime, tz)
+    const startAtUTC = fromZonedTime(localDateTime, tz)
     const endAtUTC = addMinutes(startAtUTC, service.durationMin)
 
     // Find or create customer
